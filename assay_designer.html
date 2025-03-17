@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>In Vitro Assay Designer</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .wizard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            position: relative;
+            min-height: 600px;
+        }
+        .step {
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            position: absolute;
+            width: 100%;
+            left: 0;
+        }
+        .step.active {
+            display: block;
+            opacity: 1;
+            position: relative;
+        }
+        .plate-grid {
+            display: grid;
+            gap: 8px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            grid-template-columns: 30px repeat(12, 40px);
+        }
+        .well {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ccc;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            background: radial-gradient(circle at 30% 30%, #ffffff 0%, #f0f0f0 100%);
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+            user-select: none;
+        }
+        .well:hover {
+            transform: scale(1.1);
+            box-shadow: inset 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        .well.selected {
+            border: 2px solid #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+        .well.has-cells {
+            background: rgba(0, 123, 255, 0.5);
+        }
+        .well.has-agonist {
+            background: rgba(220, 53, 69, 0.5);
+        }
+        .well.has-antagonist {
+            background: rgba(40, 167, 69, 0.5);
+        }
+        .well[data-type="agonists"].selected {
+            border-color: rgb(220, 53, 69);
+            box-shadow: 0 0 5px rgba(220, 53, 69, 0.5);
+        }
+        .well[data-type="antagonists"].selected {
+            border-color: rgb(40, 167, 69);
+            box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
+        }
+        .well.has-multiple {
+            background: conic-gradient(
+                rgba(0, 123, 255, 0.5) 0deg 120deg,
+                rgba(220, 53, 69, 0.5) 120deg 240deg,
+                rgba(40, 167, 69, 0.5) 240deg 360deg
+            );
+        }
+        .well-concentration {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 10px;
+            white-space: nowrap;
+            color: #666;
+        }
+        .form-section {
+            margin-bottom: 30px;
+        }
+        .nav-buttons {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .protocol-step {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .calculation-box {
+            background-color: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .well-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 600px;
+            width: 90%;
+        }
+        .well-modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        .component-list {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .component-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 5px 0;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+        .grid-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: #444;
+            height: 30px;
+        }
+        .row-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 12px;
+            color: #444;
+        }
+        .color-legend {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+        }
+        .protocol-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .protocol-section h5 {
+            color: #0d6efd;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 8px;
+        }
+
+        .protocol-section ul,
+        .protocol-section ol {
+            padding-left: 20px;
+            margin-bottom: 0;
+        }
+
+        .protocol-section li {
+            margin-bottom: 8px;
+        }
+
+        .protocol-section li:last-child {
+            margin-bottom: 0;
+        }
+
+        .protocol-section ul ul,
+        .protocol-section ol ul,
+        .protocol-section ul ol,
+        .protocol-section ol ol {
+            margin-top: 8px;
+        }
+
+        .protocol-section .well-list {
+            font-family: monospace;
+            background-color: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .protocol-section .calculation {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+
+        .protocol-section .warning {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        .protocol-section .note {
+            font-style: italic;
+            color: #6c757d;
+            margin-top: 8px;
+            font-size: 0.9em;
+        }
+
+        .compound-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 8px;
+        }
+        .compound-color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+        .compound-select-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        .compound-select-wrapper select {
+            width: 100%;
+            padding-left: 28px;
+            appearance: auto;
+        }
+        .compound-select-wrapper::before {
+            content: "•";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 20px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .compound-select-container {
+            position: relative;
+            width: 100%;
+        }
+        .compound-select-container select {
+            width: 100%;
+            padding-left: 25px;
+        }
+        .compound-color-indicator {
+            position: absolute;
+            left: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        .well-tooltip {
+            display: none;
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            color: #333;
+            padding: 6px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 1000;
+            min-width: 150px;
+            pointer-events: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+            border: 1px solid #ddd;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .well:hover .well-tooltip {
+            display: block;
+            animation: delayedShow 1s forwards;
+        }
+
+        @keyframes delayedShow {
+            0%, 99% {
+                opacity: 0;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .tooltip-section {
+            margin: 2px 0;
+            line-height: 1.2;
+        }
+
+        .tooltip-header {
+            font-weight: bold;
+            color: #aaa;
+            margin-bottom: 2px;
+        }
+
+        .tooltip-content {
+            padding-left: 8px;
+        }
+
+        .chat-history {
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            background: #f8f9fa;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background: #e3f2fd;
+        }
+        .ai-message {
+            background: #f5f5f5;
+        }
+
+        /* First page specific styles */
+        #step1 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        #step1 h2 {
+            grid-column: 1 / -1;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: #1a1f36;
+            font-weight: 600;
+        }
+
+        #step1 .form-section {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        #step1 .form-section h4 {
+            font-size: 1rem;
+            color: #1a1f36;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #3b82f6;
+        }
+
+        #step1 .form-label {
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+            color: #4b5563;
+            font-weight: 500;
+        }
+
+        #step1 .form-control,
+        #step1 .form-select {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+        }
+
+        #step1 .form-control:focus,
+        #step1 .form-select:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
+        }
+
+        #step1 .input-group-text {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.5rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            color: #6b7280;
+        }
+
+        #step1 .mb-3 {
+            margin-bottom: 0.75rem !important;
+        }
+
+        #step1 .compound-entry {
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 0.75rem;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e5e7eb;
+        }
+
+        #step1 .btn {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        #step1 .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        #step1 .btn-outline-primary {
+            border-color: #3b82f6;
+            color: #3b82f6;
+        }
+
+        #step1 .btn-outline-primary:hover {
+            background: rgba(59,130,246,0.1);
+            border-color: #2563eb;
+        }
+
+        #step1 .btn-outline-success {
+            border-color: #10b981;
+            color: #10b981;
+        }
+
+        #step1 .btn-outline-success:hover {
+            background: rgba(16,185,129,0.1);
+            border-color: #059669;
+        }
+
+        #step1 .nav-buttons {
+            grid-column: 1 / -1;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        #step1 .time-points-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        #step1 .time-point-input {
+            width: 80px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="wizard-container">
+        <!-- Step 1: Initial Setup -->
+        <div class="step active" id="step1">
+            <h2 class="mb-4">Assay Design Setup</h2>
+            
+            <div class="form-section">
+                <h4>Plate Configuration</h4>
+                <div class="mb-3">
+                    <label class="form-label">Plate Type</label>
+                    <select class="form-select" id="plateType">
+                        <option value="96">96-well plate</option>
+                        <option value="384">384-well plate</option>
+                        <option value="24">24-well plate</option>
+                        <option value="6">6-well plate</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Well Volume</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="wellVolume" value="1000" min="0" step="50">
+                        <span class="input-group-text">µL</span>
+                    </div>
+                    <div class="form-text">Default volume per well (typically 1000 µL for standard plates)</div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4>Cell Parameters</h4>
+                <div class="mb-3">
+                    <label class="form-label">Cell Type</label>
+                    <input type="text" class="form-control" id="cellType" placeholder="e.g., HEK293, CHO-K1">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Cell Concentration</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="cellDensity" value="1" step="0.1">
+                        <span class="input-group-text">× 10⁶ cells/mL</span>
+                    </div>
+                    <div class="form-text">Default: 1 million cells/mL</div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Culture Medium</label>
+                    <input type="text" class="form-control" id="medium" value="DMEM + 10% FBS" placeholder="e.g., DMEM + 10% FBS">
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h4>Compound Information</h4>
+                <div id="compoundList">
+                    <!-- Compound entries will be added here -->
+                </div>
+                <button class="btn btn-outline-primary btn-sm mt-2" onclick="addCompoundEntry('agonist')">Add Agonist</button>
+                <button class="btn btn-outline-success btn-sm mt-2" onclick="addCompoundEntry('antagonist')">Add Antagonist</button>
+                <button class="btn btn-outline-secondary btn-sm mt-2" onclick="addCompoundEntry('other')">Add Other Compound</button>
+            </div>
+
+            <div class="form-section">
+                <h4>Timeline</h4>
+                <div class="mb-3">
+                    <label class="form-label">Treatment Duration</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="treatmentDuration" value="24">
+                        <span class="input-group-text">hours</span>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Time Points</label>
+                    <div id="timePoints" class="d-flex flex-wrap gap-2">
+                        <div class="input-group" style="width: auto;">
+                            <input type="number" class="form-control" placeholder="Hours" style="width: 100px;">
+                            <span class="input-group-text">h</span>
+                            <button class="btn btn-outline-danger" onclick="this.parentElement.remove()">×</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm mt-2" onclick="addTimePoint()">Add Time Point</button>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <div></div>
+                <button class="btn btn-primary" onclick="nextStep(1)">Next: Plate Layout</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Plate Layout - Cell Layer -->
+        <div class="step" id="step2">
+            <h2 class="mb-4">Plate Layout - Cell Addition</h2>
+            
+            <div class="alert alert-info">
+                <strong>Current Step:</strong> Adding cells to wells. Select wells where cells will be added.
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div id="plateGrid" class="plate-grid"></div>
+                    
+                    <div class="color-legend mt-3">
+                        <div class="d-flex gap-3">
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(0, 123, 255, 0.5);"></span>
+                                <span>Cells</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(220, 53, 69, 0.5);"></span>
+                                <span>Agonists</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(40, 167, 69, 0.5);"></span>
+                                <span>Antagonists</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="cell-config mb-4">
+                        <h4>Cell Configuration</h4>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="uniformCells" checked>
+                            <label class="form-check-label" for="uniformCells">
+                                Apply same cell number to all wells
+                            </label>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Cell Count per Well</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="cellCountPerWell" value="10000">
+                                <span class="input-group-text">cells</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="selection-tools mb-4">
+                        <h4>Selection Tools</h4>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="selectAll()">Select All Wells</button>
+                            <button class="btn btn-outline-secondary" onclick="clearSelection()">Clear</button>
+                        </div>
+                        <div class="form-text">
+                            Drag to select multiple wells. Hold Ctrl/Cmd for individual selection.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(2)">Previous</button>
+                <button class="btn btn-primary" onclick="nextStep(2)">Next: Add Agonists</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Plate Layout - Agonist Layer -->
+        <div class="step" id="step3">
+            <h2 class="mb-4">Plate Layout - Agonist Addition</h2>
+            
+            <div class="alert alert-info">
+                <strong>Current Step:</strong> Adding agonists. Select wells (from those containing cells) where agonists will be added.
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div id="plateGridAgonist" class="plate-grid"></div>
+                    
+                    <div class="color-legend mt-3">
+                        <div class="d-flex gap-3">
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(0, 123, 255, 0.5);"></span>
+                                <span>Cells</span>
+                            </div>
+                            <div class="legend-item active">
+                                <span class="color-box" style="background: rgba(220, 53, 69, 0.5);"></span>
+                                <span>Agonists</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(40, 167, 69, 0.5);"></span>
+                                <span>Antagonists</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="agonist-config mb-4">
+                        <h4>Agonist Configuration</h4>
+                        <div class="mb-3">
+                            <label class="form-label">Select Agonist</label>
+                            <select class="form-select" id="agonistSelect">
+                                <!-- Populated dynamically from initial setup -->
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Concentration</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="agonistConc">
+                                <select class="form-select" id="agonistUnit" style="width: auto">
+                                    <option value="nM">nM</option>
+                                    <option value="µM" selected>µM</option>
+                                    <option value="mM">mM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Media Information</label>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" id="agonistMedia" placeholder="Media Type">
+                            </div>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="agonistVolume" placeholder="Volume">
+                                <span class="input-group-text">µL</span>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-outline-primary mb-2" onclick="setupSerialDilution('agonist')">
+                            <i class="bi bi-diagram-3"></i> Setup Serial Dilution
+                        </button>
+                    </div>
+
+                    <div class="selection-tools mb-4">
+                        <h4>Selection Tools</h4>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="selectAll()">Select All Wells</button>
+                            <button class="btn btn-outline-primary" onclick="selectAllWithCells()">Select Wells with Cells</button>
+                            <button class="btn btn-outline-secondary" onclick="clearSelection()">Clear Selection</button>
+                            <button class="btn btn-outline-danger" onclick="clearAll()">Clear All</button>
+                            <button class="btn btn-outline-danger" onclick="emptyWell()">Empty Well</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(3)">Previous</button>
+                <button class="btn btn-primary" onclick="nextStep(3)">Next: Add Antagonists</button>
+            </div>
+        </div>
+
+        <!-- Step 4: Plate Layout - Antagonist Layer -->
+        <div class="step" id="step4">
+            <h2 class="mb-4">Plate Layout - Antagonist Addition</h2>
+            
+            <div class="alert alert-info">
+                <strong>Current Step:</strong> Adding antagonists. Select wells where antagonists will be added.
+            </div>
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <div id="plateGridAntagonist" class="plate-grid"></div>
+                    
+                    <div class="color-legend mt-3">
+                        <div class="d-flex gap-3">
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(0, 123, 255, 0.5);"></span>
+                                <span>Cells</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="color-box" style="background: rgba(220, 53, 69, 0.5);"></span>
+                                <span>Agonists</span>
+                            </div>
+                            <div class="legend-item active">
+                                <span class="color-box" style="background: rgba(40, 167, 69, 0.5);"></span>
+                                <span>Antagonists</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="antagonist-config mb-4">
+                        <h4>Antagonist Configuration</h4>
+                        <div class="mb-3">
+                            <label class="form-label">Select Antagonist</label>
+                            <select class="form-select" id="antagonistSelect">
+                                <!-- Populated dynamically from initial setup -->
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Concentration</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="antagonistConc">
+                                <select class="form-select" id="antagonistUnit" style="width: auto">
+                                    <option value="nM">nM</option>
+                                    <option value="µM" selected>µM</option>
+                                    <option value="mM">mM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Media Information</label>
+                            <div class="input-group mb-2">
+                                <input type="text" class="form-control" id="antagonistMedia" placeholder="Media Type">
+                            </div>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="antagonistVolume" placeholder="Volume">
+                                <span class="input-group-text">µL</span>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-outline-primary mb-2" onclick="setupSerialDilution('antagonist')">
+                            <i class="bi bi-diagram-3"></i> Setup Serial Dilution
+                        </button>
+                    </div>
+
+                    <div class="selection-tools mb-4">
+                        <h4>Selection Tools</h4>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="selectAll()">Select All Wells</button>
+                            <button class="btn btn-outline-primary" onclick="selectAllWithCells()">Select Wells with Cells</button>
+                            <button class="btn btn-outline-primary" onclick="selectAllWithAgonists()">Select Wells with Agonists</button>
+                            <button class="btn btn-outline-secondary" onclick="clearSelection()">Clear Selection</button>
+                            <button class="btn btn-outline-danger" onclick="clearAll()">Clear All</button>
+                            <button class="btn btn-outline-danger" onclick="emptyWell()">Empty Well</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(4)">Previous</button>
+                <button class="btn btn-primary" onclick="nextStep(4)">Next: Review & Export</button>
+            </div>
+        </div>
+
+        <!-- Step 5: Calculations and Protocol -->
+        <div class="step" id="step5">
+            <h2 class="mb-4">Calculations and Protocol</h2>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Reagent Calculations</h4>
+                    <div id="calculations" class="calculation-box">
+                        <!-- Dynamically filled -->
+                    </div>
+
+                    <h4 class="mt-4">Stock Solutions</h4>
+                    <div id="stockSolutions" class="calculation-box">
+                        <!-- Dynamically filled -->
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <h4>Protocol Steps</h4>
+                    <div id="protocol" class="protocol-steps">
+                        <!-- Dynamically filled -->
+                    </div>
+                    <div class="mt-3">
+                        <div class="btn-group">
+                            <button class="btn btn-outline-primary" onclick="exportProtocol('text')">
+                                <i class="bi bi-file-text"></i> Export as Text
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="exportProtocol('pdf')">
+                                <i class="bi bi-file-pdf"></i> Export as PDF
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="exportProtocol('excel')">
+                                <i class="bi bi-file-excel"></i> Export as Excel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <h4>Plate Layout Preview</h4>
+                <div id="layoutPreview"></div>
+            </div>
+
+            <div class="nav-buttons">
+                <button class="btn btn-secondary" onclick="prevStep(5)">Previous</button>
+                <button class="btn btn-success" onclick="exportDesign()">Export Design</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentStep = 1;
+        let plateLayout = [];
+        let plateConfig = {
+            rows: 8,
+            cols: 12,
+            wellVolume: 1000 // µL
+        };
+
+        // Track well contents for each layer
+        let wellContents = {
+            cells: new Set(),
+            agonists: new Set(),
+            antagonists: new Set()
+        };
+
+        // Track compounds and their colors
+        let compounds = {
+            agonists: new Map(),  // Map of agonist name to color
+            antagonists: new Map(), // Map of antagonist name to color
+            list: new Map() // For backward compatibility
+        };
+
+        // Color palettes for agonists and antagonists
+        const colorPalettes = {
+            agonists: [
+                'rgba(220, 53, 69, 0.5)',   // Red
+                'rgba(253, 126, 20, 0.5)',  // Orange
+                'rgba(255, 193, 7, 0.5)',   // Yellow
+                'rgba(232, 62, 140, 0.5)',  // Pink
+                'rgba(214, 51, 132, 0.5)'   // Dark Pink
+            ],
+            antagonists: [
+                'rgba(40, 167, 69, 0.5)',   // Green
+                'rgba(32, 201, 151, 0.5)',  // Teal
+                'rgba(23, 162, 184, 0.5)',  // Cyan
+                'rgba(0, 145, 124, 0.5)',   // Dark Teal
+                'rgba(48, 219, 91, 0.5)'    // Light Green
+            ]
+        };
+
+        // Initialize plate layout
+        function initializePlate() {
+            const grid = document.getElementById('plateGrid');
+            grid.style.gridTemplateColumns = `30px repeat(${plateConfig.cols}, 40px)`;
+            
+            // Clear existing grid
+            grid.innerHTML = '';
+            plateLayout = [];
+
+            // Create column headers (numbers 1-12)
+            createHeaderRow(grid);
+
+            // Create rows with row headers (A-H)
+            for (let i = 0; i < plateConfig.rows; i++) {
+                createRowHeader(grid, i);
+                createWellsForRow(grid, i);
+            }
+
+            // Add mouseup listener to document to handle drag end
+            document.addEventListener('mouseup', endDrag);
+            
+            // Clone plate grid for agonist and antagonist steps
+            clonePlateGrid('plateGridAgonist');
+            clonePlateGrid('plateGridAntagonist');
+        }
+
+        function createHeaderRow(grid) {
+            const headerRow = document.createElement('div');
+            headerRow.style.gridColumn = `1 / span ${plateConfig.cols + 1}`;
+            headerRow.style.display = 'grid';
+            headerRow.style.gridTemplateColumns = `30px repeat(${plateConfig.cols}, 40px)`;
+            headerRow.style.gap = '8px';
+            
+            // Empty corner cell
+            const cornerCell = document.createElement('div');
+            cornerCell.className = 'grid-header';
+            headerRow.appendChild(cornerCell);
+            
+            // Number headers
+            for (let i = 1; i <= plateConfig.cols; i++) {
+                const header = document.createElement('div');
+                header.className = 'grid-header';
+                header.textContent = i;
+                headerRow.appendChild(header);
+            }
+            grid.appendChild(headerRow);
+        }
+
+        function createRowHeader(grid, rowIndex) {
+            const rowHeader = document.createElement('div');
+            rowHeader.className = 'row-header';
+            rowHeader.textContent = String.fromCharCode(65 + rowIndex);
+            grid.appendChild(rowHeader);
+        }
+
+        function createWellsForRow(grid, rowIndex) {
+            plateLayout[rowIndex] = [];
+            
+            for (let j = 0; j < plateConfig.cols; j++) {
+                const well = document.createElement('div');
+                well.className = 'well';
+                well.dataset.row = rowIndex;
+                well.dataset.col = j;
+                well.dataset.type = 'cells'; // Set initial type for the first grid
+                
+                // Add mouse event listeners for drag selection
+                well.addEventListener('mousedown', (e) => startDrag(e, rowIndex, j));
+                well.addEventListener('mouseover', (e) => handleDrag(e, rowIndex, j));
+                well.addEventListener('click', (e) => handleWellClick(e, rowIndex, j));
+                
+                grid.appendChild(well);
+                
+                plateLayout[rowIndex][j] = {
+                    cells: false,
+                    agonists: [],
+                    antagonists: [],
+                    volume: plateConfig.wellVolume
+                };
+            }
+        }
+
+        function clonePlateGrid(targetId) {
+            const sourceGrid = document.getElementById('plateGrid');
+            const targetGrid = document.getElementById(targetId);
+            if (sourceGrid && targetGrid) {
+                targetGrid.innerHTML = sourceGrid.innerHTML;
+                
+                // Add event listeners to the cloned wells and set the correct type
+                targetGrid.querySelectorAll('.well').forEach(well => {
+                    const row = parseInt(well.dataset.row);
+                    const col = parseInt(well.dataset.col);
+                    well.addEventListener('mousedown', (e) => startDrag(e, row, col));
+                    well.addEventListener('mouseover', (e) => handleDrag(e, row, col));
+                    well.addEventListener('click', (e) => handleWellClick(e, row, col));
+                    
+                    // Set the appropriate type based on the grid ID
+                    if (targetId === 'plateGridAgonist') {
+                        well.dataset.type = 'agonists';
+                    } else if (targetId === 'plateGridAntagonist') {
+                        well.dataset.type = 'antagonists';
+                    } else {
+                        well.dataset.type = 'cells';
+                    }
+                });
+            }
+        }
+
+        // Enhanced well selection functionality
+        let isCtrlPressed = false;
+        let isDragging = false;
+        let dragStartWell = null;
+        let dragEndWell = null;
+        let selectionMode = null;
+
+        // Track ctrl/cmd key state
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Control' || e.key === 'Meta') {
+                isCtrlPressed = true;
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Control' || e.key === 'Meta') {
+                isCtrlPressed = false;
+            }
+        });
+
+        // Initialize wellComponents globally
+        let wellComponents = {};
+
+        // Add preselection tracking
+        let preselectedWells = new Set();
+
+        // Track last click time for double-click detection
+        let lastClickTime = 0;
+        const doubleClickDelay = 300; // milliseconds
+
+        function handleWellClick(event, row, col) {
+            const wellKey = `${row},${col}`;
+            const currentType = event.target.dataset.type;
+            const currentTime = new Date().getTime();
+            const timeDiff = currentTime - lastClickTime;
+            
+            // Check if this is a double-click
+            if (timeDiff < doubleClickDelay) {
+                // Double-click: handle compound selection and remove pre-selection
+                preselectedWells.delete(wellKey);
+                event.target.classList.remove('selected');
+                handleCompoundSelection(event, row, col);
+            } else {
+                // Single-click: handle pre-selection
+                if (preselectedWells.has(wellKey)) {
+                    preselectedWells.delete(wellKey);
+                    event.target.classList.remove('selected');
+                } else {
+                    preselectedWells.add(wellKey);
+                    event.target.classList.add('selected');
+                }
+            }
+            
+            lastClickTime = currentTime;
+            event.preventDefault();
+        }
+
+        function handleCompoundSelection(event, row, col) {
+            const wellKey = `${row},${col}`;
+            
+            // Get the current selection set based on step
+            let currentSet;
+            let selectedCompound;
+            let concentration;
+            let unit;
+            let mediaVolume;
+            let mediaType;
+            
+            switch(currentStep) {
+                case 2:
+                    currentSet = wellContents.cells;
+                    mediaVolume = document.getElementById('wellVolume').value;
+                    mediaType = document.getElementById('medium').value;
+                    break;
+                case 3:
+                    currentSet = wellContents.agonists;
+                    selectedCompound = document.getElementById('agonistSelect').value;
+                    concentration = parseFloat(document.getElementById('agonistConc').value);
+                    unit = document.getElementById('agonistUnit').value;
+                    mediaVolume = document.getElementById('agonistVolume').value;
+                    mediaType = document.getElementById('agonistMedia').value;
+                    break;
+                case 4:
+                    currentSet = wellContents.antagonists;
+                    selectedCompound = document.getElementById('antagonistSelect').value;
+                    concentration = parseFloat(document.getElementById('antagonistConc').value);
+                    unit = document.getElementById('antagonistUnit').value;
+                    mediaVolume = document.getElementById('antagonistVolume').value;
+                    mediaType = document.getElementById('antagonistMedia').value;
+                    break;
+                default:
+                    return;
+            }
+
+            // Initialize wellComponents if needed
+            if (!wellComponents[wellKey]) {
+                wellComponents[wellKey] = { 
+                    cells: new Set(),
+                    agonists: [],
+                    antagonists: [],
+                    mediaVolume: mediaVolume,
+                    mediaType: mediaType
+                };
+            }
+            
+            // Add or remove compounds
+            if (currentStep === 2) {
+                if (currentSet.has(wellKey)) {
+                    currentSet.delete(wellKey);
+                    wellComponents[wellKey].cells.clear();
+                } else {
+                    currentSet.add(wellKey);
+                    wellComponents[wellKey].cells.add('cells');
+                    wellComponents[wellKey].mediaVolume = mediaVolume;
+                    wellComponents[wellKey].mediaType = mediaType;
+                }
+            } else {
+                const targetArray = currentStep === 3 ? wellComponents[wellKey].agonists : wellComponents[wellKey].antagonists;
+                const type = currentStep === 3 ? 'agonist' : 'antagonist';
+                
+                // Always add the compound (no toggle behavior)
+                if (!targetArray.includes(selectedCompound)) {
+                    targetArray.push(selectedCompound);
+                    currentSet.add(wellKey);
+                    wellComponents[wellKey].mediaVolume = mediaVolume;
+                    wellComponents[wellKey].mediaType = mediaType;
+                    
+                    // Store compound information
+                    if (!plateLayout[row][col].compounds) {
+                        plateLayout[row][col].compounds = [];
+                    }
+                    plateLayout[row][col].compounds.push({
+                        name: selectedCompound,
+                        type: type,
+                        concentration: concentration,
+                        unit: unit
+                    });
+                }
+            }
+            
+            updateAllGrids();
+        }
+
+        function updateAllGrids() {
+            // Update all wells in all grids
+            for (let i = 0; i < plateConfig.rows; i++) {
+                for (let j = 0; j < plateConfig.cols; j++) {
+                    updateWellVisuals(i, j);
+                }
+            }
+        }
+
+        function updateWellVisuals(row, col) {
+            const wellKey = `${row},${col}`;
+            const wells = document.querySelectorAll(`.well[data-row="${row}"][data-col="${col}"]`);
+            const components = wellComponents[wellKey] || { cells: new Set(), agonists: [], antagonists: [] };
+            
+            wells.forEach(well => {
+                // Reset well appearance
+                well.className = 'well';
+                well.style.background = '';
+                
+                // Add pre-selection state
+                if (preselectedWells.has(wellKey)) {
+                    well.classList.add('selected');
+                }
+                
+                // Collect all colors that should be displayed in this well
+                const colors = [];
+                
+                // Create tooltip content
+                let tooltipContent = `<div style="font-weight:bold;margin-bottom:3px">Well ${String.fromCharCode(65 + row)}${col + 1}</div>`;
+                
+                // Add media information
+                if (components.mediaVolume || components.mediaType) {
+                    tooltipContent += `<div class="tooltip-section">
+                        Media: ${components.mediaType || 'Default'}<br>
+                        Volume: ${components.mediaVolume || plateConfig.wellVolume} µL
+                    </div>`;
+                }
+                
+                // Add cell information
+                if (wellContents.cells.has(wellKey)) {
+                    colors.push('rgba(0, 123, 255, 0.5)');
+                    well.classList.add('has-cells');
+                    const cellDensity = document.getElementById('cellDensity').value;
+                    tooltipContent += `<div class="tooltip-section">Cells: ${cellDensity}×10⁶/mL</div>`;
+                }
+                
+                // Add agonist information
+                if (components.agonists.length > 0) {
+                    well.classList.add('has-agonist');
+                    components.agonists.forEach(agonist => {
+                        const color = compounds.agonists.get(agonist);
+                        if (color) {
+                            colors.push(color);
+                            tooltipContent += `<div class="tooltip-section">
+                                Agonist: ${agonist} (${getWellConcentration(row, col, agonist, 'agonist')})
+                            </div>`;
+                        }
+                    });
+                }
+                
+                // Add antagonist information
+                if (components.antagonists.length > 0) {
+                    well.classList.add('has-antagonist');
+                    components.antagonists.forEach(antagonist => {
+                        const color = compounds.antagonists.get(antagonist);
+                        if (color) {
+                            colors.push(color);
+                            tooltipContent += `<div class="tooltip-section">
+                                Antagonist: ${antagonist} (${getWellConcentration(row, col, antagonist, 'antagonist')})
+                            </div>`;
+                        }
+                    });
+                }
+                
+                // Create or update tooltip
+                let tooltip = well.querySelector('.well-tooltip');
+                if (!tooltip) {
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'well-tooltip';
+                    well.appendChild(tooltip);
+                }
+                tooltip.innerHTML = tooltipContent;
+                
+                // Apply segmented colors
+                if (colors.length > 0) {
+                    well.style.background = generateMultiComponentGradient(colors);
+                }
+            });
+        }
+
+        function generateMultiComponentGradient(colors) {
+            if (colors.length === 0) return 'transparent';
+            if (colors.length === 1) return colors[0];
+            
+            // For two colors, use a linear gradient for a clean split
+            if (colors.length === 2) {
+                return `linear-gradient(45deg, ${colors[0]} 0% 50%, ${colors[1]} 50% 100%)`;
+            }
+            
+            // For three or more colors, use conic gradient with sharp transitions
+            const segmentSize = 360 / colors.length;
+            const gradientParts = [];
+            
+            colors.forEach((color, index) => {
+                const start = index * segmentSize;
+                const end = (index + 1) * segmentSize;
+                gradientParts.push(`${color} ${start}deg ${end}deg`);
+            });
+            
+            return `conic-gradient(from 45deg, ${gradientParts.join(', ')})`;
+        }
+
+        function startDrag(event, row, col) {
+            const wellKey = `${row},${col}`;
+            
+            // Get the current selection set based on step
+            let currentSet;
+            let selectedCompound;
+            
+            switch(currentStep) {
+                case 2:
+                    currentSet = wellContents.cells;
+                    break;
+                case 3:
+                    currentSet = wellContents.agonists;
+                    selectedCompound = document.getElementById('agonistSelect').value;
+                    if (!selectedCompound) {
+                        alert('Please select a compound first');
+                        return;
+                    }
+                    break;
+                case 4:
+                    currentSet = wellContents.antagonists;
+                    selectedCompound = document.getElementById('antagonistSelect').value;
+                    if (!selectedCompound) {
+                        alert('Please select a compound first');
+                        return;
+                    }
+                    break;
+                default:
+                    return;
+            }
+            
+            isDragging = true;
+            dragStartWell = { row, col };
+            
+            // Set selection mode based on the clicked well's current state
+            if (currentStep === 2) {
+                selectionMode = !currentSet.has(wellKey);
+            } else {
+                const targetSet = currentStep === 3 ? 
+                    wellComponents[wellKey]?.agonists : 
+                    wellComponents[wellKey]?.antagonists;
+                selectionMode = !(targetSet && targetSet.has(selectedCompound));
+            }
+            
+            // Update visuals immediately
+            updateAllGrids();
+            event.preventDefault();
+        }
+
+        function handleDrag(event, row, col) {
+            if (!isDragging) return;
+            
+            const startRow = Math.min(dragStartWell.row, row);
+            const endRow = Math.max(dragStartWell.row, row);
+            const startCol = Math.min(dragStartWell.col, col);
+            const endCol = Math.max(dragStartWell.col, col);
+            
+            // For each well in the dragged rectangle
+            for (let i = startRow; i <= endRow; i++) {
+                for (let j = startCol; j <= endCol; j++) {
+                    const wellKey = `${i},${j}`;
+                    
+                    if (currentStep === 2) {
+                        // For cell step, directly select/deselect
+                        if (selectionMode) {
+                            wellContents.cells.add(wellKey);
+                            if (!wellComponents[wellKey]) {
+                                wellComponents[wellKey] = {
+                                    cells: new Set(['cells']),
+                                    agonists: [],
+                                    antagonists: [],
+                                    mediaVolume: document.getElementById('wellVolume').value,
+                                    mediaType: document.getElementById('medium').value
+                                };
+                            } else {
+                                wellComponents[wellKey].cells.add('cells');
+                            }
+                        } else {
+                            wellContents.cells.delete(wellKey);
+                            if (wellComponents[wellKey]) {
+                                wellComponents[wellKey].cells.clear();
+                            }
+                        }
+                    } else {
+                        // For agonist/antagonist steps, directly apply compound
+                        const selectedCompound = currentStep === 3 ? 
+                            document.getElementById('agonistSelect').value :
+                            document.getElementById('antagonistSelect').value;
+                        
+                        if (!selectedCompound) continue;
+                        
+                        if (!wellComponents[wellKey]) {
+                            wellComponents[wellKey] = {
+                                cells: new Set(),
+                                agonists: [],
+                                antagonists: [],
+                                mediaVolume: currentStep === 3 ? 
+                                    document.getElementById('agonistVolume').value :
+                                    document.getElementById('antagonistVolume').value,
+                                mediaType: currentStep === 3 ?
+                                    document.getElementById('agonistMedia').value :
+                                    document.getElementById('antagonistMedia').value
+                            };
+                        }
+                        
+                        const targetArray = currentStep === 3 ? 
+                            wellComponents[wellKey].agonists :
+                            wellComponents[wellKey].antagonists;
+                        
+                        if (selectionMode && !targetArray.includes(selectedCompound)) {
+                            targetArray.push(selectedCompound);
+                            if (currentStep === 3) {
+                                wellContents.agonists.add(wellKey);
+                            } else {
+                                wellContents.antagonists.add(wellKey);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            updateAllGrids();
+            event.preventDefault();
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            
+            isDragging = false;
+            dragStartWell = null;
+            dragEndWell = null;
+            updateAllGrids();
+        }
+
+        function selectAllWithCells() {
+            const currentSet = getCurrentSelectionSet();
+            currentSet.clear();
+            
+            // For agonists and antagonists, only select wells that have cells
+            if (currentStep === 3 || currentStep === 4) {
+                wellContents.cells.forEach(wellKey => {
+                    currentSet.add(wellKey);
+                });
+            } else {
+                for (let i = 0; i < plateConfig.rows; i++) {
+                    for (let j = 0; j < plateConfig.cols; j++) {
+                        currentSet.add(`${i},${j}`);
+                    }
+                }
+            }
+            
+            updateAllGrids();
+        }
+
+        function clearSelection() {
+            const currentSet = getCurrentSelectionSet();
+            currentSet.clear();
+            updateAllGrids();
+        }
+
+        // Serial dilution functionality
+        function setupSerialDilution(type) {
+            const modalId = `${type}SerialDilutionModal`;
+            const modal = document.createElement('div');
+            modal.className = 'well-modal';
+            modal.id = modalId;
+            
+            modal.innerHTML = `
+                <h4>Serial Dilution Setup - ${type.charAt(0).toUpperCase() + type.slice(1)}</h4>
+                <div class="mb-3">
+                    <label class="form-label">Starting Concentration</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" id="${type}StartConc" value="10">
+                        <select class="form-select" id="${type}ConcUnit">
+                            <option value="nM">nM</option>
+                            <option value="µM" selected>µM</option>
+                            <option value="mM">mM</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Dilution Factor</label>
+                    <select class="form-select" id="${type}DilutionFactor">
+                        <option value="2">1:2</option>
+                        <option value="3">1:3</option>
+                        <option value="5">1:5</option>
+                        <option value="10">1:10</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Number of Dilutions</label>
+                    <input type="number" class="form-control" id="${type}DilutionSteps" value="8" min="1" max="12">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Direction</label>
+                    <select class="form-select" id="${type}DilutionDirection">
+                        <option value="horizontal">Horizontal (left to right)</option>
+                        <option value="vertical">Vertical (top to bottom)</option>
+                    </select>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-secondary" onclick="closeSerialDilutionModal('${modalId}')">Cancel</button>
+                    <button class="btn btn-primary" onclick="applySerialDilution('${type}')">Apply</button>
+                </div>
+            `;
+            
+            const backdrop = document.createElement('div');
+            backdrop.className = 'well-modal-backdrop';
+            
+            document.body.appendChild(backdrop);
+            document.body.appendChild(modal);
+        }
+
+        function closeSerialDilutionModal(modalId) {
+            document.getElementById(modalId).remove();
+            document.querySelector('.well-modal-backdrop').remove();
+        }
+
+        function applySerialDilution(type) {
+            const startConc = parseFloat(document.getElementById(`${type}StartConc`).value);
+            const dilutionFactor = parseFloat(document.getElementById(`${type}DilutionFactor`).value);
+            const steps = parseInt(document.getElementById(`${type}DilutionSteps`).value);
+            const direction = document.getElementById(`${type}DilutionDirection`).value;
+            const unit = document.getElementById(`${type}ConcUnit`).value;
+            
+            // Get the selected compound
+            const selectedCompound = type === 'agonist' ? 
+                document.getElementById('agonistSelect').value :
+                document.getElementById('antagonistSelect').value;
+
+            if (!selectedCompound) {
+                alert('Please select a compound first');
+                closeSerialDilutionModal(`${type}SerialDilutionModal`);
+                return;
+            }
+
+            // Use pre-selected wells as starting points
+            const preselectedWellsList = Array.from(preselectedWells);
+
+            if (preselectedWellsList.length === 0) {
+                alert('Please pre-select at least one well first (click without holding Ctrl/Cmd)');
+                closeSerialDilutionModal(`${type}SerialDilutionModal`);
+                return;
+            }
+
+            // Process each pre-selected well as a starting point
+            preselectedWellsList.forEach(wellKey => {
+                const [startRow, startCol] = wellKey.split(',').map(Number);
+                
+                // Apply dilution series from this starting point
+                for (let i = 0; i < steps; i++) {
+                    const concentration = startConc / Math.pow(dilutionFactor, i);
+                    let row, col;
+                    
+                    if (direction === 'vertical') {
+                        row = startRow + i;
+                        col = startCol;
+                        if (row >= plateConfig.rows) continue;
+                    } else {
+                        row = startRow;
+                        col = startCol + i;
+                        if (col >= plateConfig.cols) continue;
+                    }
+                    
+                    const currentWellKey = `${row},${col}`;
+                    
+                    // Initialize wellComponents if needed
+                    if (!wellComponents[currentWellKey]) {
+                        wellComponents[currentWellKey] = { 
+                            cells: new Set(),
+                            agonists: [],
+                            antagonists: [],
+                            mediaVolume: document.getElementById('wellVolume').value,
+                            mediaType: type === 'agonist' ? 
+                                document.getElementById('agonistMedia').value : 
+                                document.getElementById('antagonistMedia').value
+                        };
+                    }
+
+                    // Add the compound to the appropriate array
+                    const targetArray = type === 'agonist' ? 
+                        wellComponents[currentWellKey].agonists : 
+                        wellComponents[currentWellKey].antagonists;
+                    
+                    if (!targetArray.includes(selectedCompound)) {
+                        targetArray.push(selectedCompound);
+                        if (type === 'agonist') {
+                            wellContents.agonists.add(currentWellKey);
+                        } else {
+                            wellContents.antagonists.add(currentWellKey);
+                        }
+                    }
+
+                    // Store the concentration for this well
+                    if (!plateLayout[row]) plateLayout[row] = [];
+                    if (!plateLayout[row][col]) plateLayout[row][col] = {};
+                    
+                    if (!plateLayout[row][col].compounds) {
+                        plateLayout[row][col].compounds = [];
+                    }
+                    
+                    // Update or add compound concentration
+                    const existingCompound = plateLayout[row][col].compounds.find(c => 
+                        c.name === selectedCompound && c.type === type);
+                    
+                    if (existingCompound) {
+                        existingCompound.concentration = concentration;
+                        existingCompound.unit = unit;
+                    } else {
+                        plateLayout[row][col].compounds.push({
+                            name: selectedCompound,
+                            type: type,
+                            concentration: concentration,
+                            unit: unit
+                        });
+                    }
+                }
+            });
+            
+            // Clear pre-selections after applying
+            preselectedWells.clear();
+            
+            // Update the visual representation
+            updateAllGrids();
+            closeSerialDilutionModal(`${type}SerialDilutionModal`);
+        }
+
+        // Selection tool functions
+        function selectAll() {
+            if (currentStep === 2) {
+                // For cell step, directly select all wells
+                for (let i = 0; i < plateConfig.rows; i++) {
+                    for (let j = 0; j < plateConfig.cols; j++) {
+                        const wellKey = `${i},${j}`;
+                        wellContents.cells.add(wellKey);
+                        if (!wellComponents[wellKey]) {
+                            wellComponents[wellKey] = {
+                                cells: new Set(['cells']),
+                                agonists: [],
+                                antagonists: [],
+                                mediaVolume: document.getElementById('wellVolume').value,
+                                mediaType: document.getElementById('medium').value
+                            };
+                        } else {
+                            wellComponents[wellKey].cells.add('cells');
+                        }
+                    }
+                }
+            } else {
+                // For other steps, just preselect
+                for (let i = 0; i < plateConfig.rows; i++) {
+                    for (let j = 0; j < plateConfig.cols; j++) {
+                        preselectedWells.add(`${i},${j}`);
+                    }
+                }
+            }
+            updateAllGrids();
+        }
+
+        function selectAllWithCells() {
+            wellContents.cells.forEach(wellKey => {
+                preselectedWells.add(wellKey);
+            });
+            updateAllGrids();
+        }
+
+        function selectAllWithPrevious() {
+            if (currentStep === 3) {
+                // For agonist step, select wells with cells
+                wellContents.cells.forEach(wellKey => {
+                    preselectedWells.add(wellKey);
+                });
+            } else if (currentStep === 4) {
+                // For antagonist step, select wells with agonists
+                wellContents.agonists.forEach(wellKey => {
+                    preselectedWells.add(wellKey);
+                });
+            }
+            updateAllGrids();
+        }
+
+        function getCurrentSelectionSet() {
+            switch(currentStep) {
+                case 2:
+                    return wellContents.cells;
+                case 3:
+                    return wellContents.agonists;
+                case 4:
+                    return wellContents.antagonists;
+                default:
+                    return new Set();
+            }
+        }
+
+        function nextStep(current) {
+            // Hide current step
+            document.getElementById(`step${current}`).classList.remove('active');
+            
+            // Show next step
+            document.getElementById(`step${current + 1}`).classList.add('active');
+            currentStep = current + 1;
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+
+            if (current === 1) {
+                initializePlate();
+            } else if (current === 2 || current === 3) {
+                updateCompoundSelectors();
+                updateAllGrids();
+                
+                // Auto-select first compound
+                if (current === 2) {
+                    const agonistSelect = document.getElementById('agonistSelect');
+                    if (agonistSelect.options.length > 1) {
+                        agonistSelect.selectedIndex = 1;
+                    }
+                } else if (current === 3) {
+                    const antagonistSelect = document.getElementById('antagonistSelect');
+                    if (antagonistSelect.options.length > 1) {
+                        antagonistSelect.selectedIndex = 1;
+                    }
+                }
+            } else if (current === 4) {
+                generateProtocol();
+                createFinalPlateOverview();
+            }
+        }
+
+        function selectAllWithCells() {
+            const currentSet = getCurrentSelectionSet();
+            const selectedCompound = currentStep === 3 ? 
+                document.getElementById('agonistSelect').value :
+                document.getElementById('antagonistSelect').value;
+
+            if (!selectedCompound) {
+                alert('Please select a compound first');
+                return;
+            }
+
+            wellContents.cells.forEach(wellKey => {
+                currentSet.add(wellKey);
+                if (!wellComponents[wellKey]) {
+                    wellComponents[wellKey] = { cells: new Set(), agonists: new Set(), antagonists: new Set() };
+                }
+                if (currentStep === 3) {
+                    wellComponents[wellKey].agonists.add(selectedCompound);
+                } else if (currentStep === 4) {
+                    wellComponents[wellKey].antagonists.add(selectedCompound);
+                }
+            });
+            updateAllGrids();
+        }
+
+        function clearAgonistSelection() {
+            wellContents.agonists.clear();
+            Object.values(wellComponents).forEach(well => well.agonists.clear());
+            updateAllGrids();
+        }
+
+        function clearAntagonistSelection() {
+            wellContents.antagonists.clear();
+            Object.values(wellComponents).forEach(well => well.antagonists.clear());
+            updateAllGrids();
+        }
+
+        // Navigation functions
+        function prevStep(current) {
+            // Hide current step
+            document.getElementById(`step${current}`).classList.remove('active');
+            
+            // Show previous step
+            document.getElementById(`step${current - 1}`).classList.add('active');
+            currentStep = current - 1;
+            
+            // Scroll to top
+            window.scrollTo(0, 0);
+            
+            // Update the UI based on any changes
+            if (current === 3 || current === 4) {
+                updateCompoundSelectors();
+                updateAllGrids();
+            }
+        }
+
+        // Update compound selectors based on initial setup
+        function updateCompoundSelectors() {
+            const agonistSelect = document.getElementById('agonistSelect');
+            const antagonistSelect = document.getElementById('antagonistSelect');
+
+            // Add CSS for the compound selectors if not already added
+            if (!document.getElementById('compound-selector-styles')) {
+                const style = document.createElement('style');
+                style.id = 'compound-selector-styles';
+                style.textContent = `
+                    .compound-select-container {
+                        position: relative;
+                        width: 100%;
+                    }
+                    .compound-select-container select {
+                        width: 100%;
+                        padding-left: 25px;
+                    }
+                    .compound-color-indicator {
+                        position: absolute;
+                        left: 8px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        width: 12px;
+                        height: 12px;
+                        border-radius: 50%;
+                        pointer-events: none;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // Function to create a styled select container
+            function createStyledSelect(select, compounds) {
+                const container = document.createElement('div');
+                container.className = 'compound-select-container';
+                
+                const colorIndicator = document.createElement('div');
+                colorIndicator.className = 'compound-color-indicator';
+                
+                // Replace the select with the container
+                select.parentNode.insertBefore(container, select);
+                container.appendChild(colorIndicator);
+                container.appendChild(select);
+                
+                // Update color indicator when selection changes
+                select.addEventListener('change', () => {
+                    const selectedValue = select.value;
+                    const color = compounds.get(selectedValue);
+                    colorIndicator.style.backgroundColor = color || 'transparent';
+                });
+                
+                return container;
+            }
+
+            // Update agonist selector
+            agonistSelect.innerHTML = '<option value="">Select Agonist</option>';
+            compounds.agonists.forEach((color, name) => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                agonistSelect.appendChild(option);
+            });
+            
+            // Update antagonist selector
+            antagonistSelect.innerHTML = '<option value="">Select Antagonist</option>';
+            compounds.antagonists.forEach((color, name) => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                antagonistSelect.appendChild(option);
+            });
+
+            // Create styled containers if they don't exist
+            if (!agonistSelect.parentElement.classList.contains('compound-select-container')) {
+                createStyledSelect(agonistSelect, compounds.agonists);
+            }
+            if (!antagonistSelect.parentElement.classList.contains('compound-select-container')) {
+                createStyledSelect(antagonistSelect, compounds.antagonists);
+            }
+
+            // Initialize color indicators
+            agonistSelect.dispatchEvent(new Event('change'));
+            antagonistSelect.dispatchEvent(new Event('change'));
+        }
+
+        // Update the well visuals when a compound is selected
+        function updateWellVisualsWithCompound(wellKey, compoundType, compoundName) {
+            const wells = document.querySelectorAll(`.well[data-row="${wellKey.split(',')[0]}"][data-col="${wellKey.split(',')[1]}"]`);
+            const color = compoundType === 'agonist' ? 
+                compounds.agonists.get(compoundName) : 
+                compounds.antagonists.get(compoundName);
+
+            wells.forEach(well => {
+                if (compoundType === 'agonist') {
+                    well.classList.add('has-agonist');
+                    if (well.dataset.type === 'agonists') {
+                        well.style.background = color;
+                    }
+                } else {
+                    well.classList.add('has-antagonist');
+                    if (well.dataset.type === 'antagonists') {
+                        well.style.background = color;
+                    }
+                }
+            });
+        }
+
+        // Add drag selection variables
+        let activeWell = null;
+        let lastSelectedWell = null;
+
+        // Add compound entry to the form
+        function addCompoundEntry(type) {
+            const compoundList = document.getElementById('compoundList');
+            const compoundDiv = document.createElement('div');
+            compoundDiv.className = 'mb-3 p-3 border rounded';
+            
+            // Get next available color and sequence number
+            const colorIndex = type === 'agonist' ? compounds.agonists.size : compounds.antagonists.size;
+            const color = type === 'agonist' ? 
+                colorPalettes.agonists[colorIndex % colorPalettes.agonists.length] :
+                colorPalettes.antagonists[colorIndex % colorPalettes.antagonists.length];
+            
+            // Generate default name based on type and sequence number
+            const defaultName = type === 'agonist' ? 
+                `Agonist ${colorIndex + 1}` : 
+                type === 'antagonist' ? 
+                    `Antagonist ${colorIndex + 1}` : 
+                    `Compound ${colorIndex + 1}`;
+            
+            // Add compound entry HTML
+            compoundDiv.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="d-flex align-items-center gap-2">
+                        <span class="color-box" style="background: ${color}"></span>
+                        <span class="${type === 'agonist' ? 'text-primary' : 'text-success'}">${type.charAt(0).toUpperCase() + type.slice(1)}</span>
+                    </h6>
+                    <button class="btn btn-outline-danger btn-sm" onclick="removeCompound(this, '${type}')">Remove</button>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Name</label>
+                    <input type="text" class="form-control compound-name" value="${defaultName}" placeholder="e.g., Compound A" data-type="${type}" onchange="updateCompoundName(this, '${type}')">
+                </div>
+                <div class="row">
+                    <div class="col">
+                        <label class="form-label">Stock Concentration</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" value="10">
+                            <select class="form-select" style="width: auto">
+                                <option value="nM">nM</option>
+                                <option value="µM" selected>µM</option>
+                                <option value="mM">mM</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col">
+                        <label class="form-label">Working Concentration</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" value="1">
+                            <select class="form-select" style="width: auto">
+                                <option value="nM">nM</option>
+                                <option value="µM" selected>µM</option>
+                                <option value="mM">mM</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            `;
+            compoundList.appendChild(compoundDiv);
+            
+            // Update compound name and color in the compounds map
+            const nameInput = compoundDiv.querySelector('.compound-name');
+            updateCompoundName(nameInput, type);
+            
+            // Update UI in all steps
+            updateColorLegend();
+            updateCompoundSelectors();
+            updateAllGrids();
+            
+            // If we're on a later step, update the protocol and overview
+            if (currentStep === 5) {
+                generateProtocol();
+                createFinalPlateOverview();
+            }
+        }
+
+        // Update compound removal to propagate changes
+        function removeCompound(button, type) {
+            const compoundDiv = button.closest('div.mb-3');
+            const compoundName = compoundDiv.querySelector('.compound-name').value;
+            
+            // Remove compound from maps
+            if (type === 'agonist') {
+                compounds.agonists.delete(compoundName);
+                // Remove compound from all wells
+                Object.keys(wellComponents).forEach(wellKey => {
+                    const index = wellComponents[wellKey].agonists.indexOf(compoundName);
+                    if (index > -1) {
+                        wellComponents[wellKey].agonists.splice(index, 1);
+                        if (wellComponents[wellKey].agonists.length === 0) {
+                            wellContents.agonists.delete(wellKey);
+                        }
+                    }
+                });
+            } else if (type === 'antagonist') {
+                compounds.antagonists.delete(compoundName);
+                // Remove compound from all wells
+                Object.keys(wellComponents).forEach(wellKey => {
+                    const index = wellComponents[wellKey].antagonists.indexOf(compoundName);
+                    if (index > -1) {
+                        wellComponents[wellKey].antagonists.splice(index, 1);
+                        if (wellComponents[wellKey].antagonists.length === 0) {
+                            wellContents.antagonists.delete(wellKey);
+                        }
+                    }
+                });
+            }
+            
+            compoundDiv.remove();
+            
+            // Update UI in all steps
+            updateColorLegend();
+            updateCompoundSelectors();
+            updateAllGrids();
+            
+            // If we're on a later step, update the protocol and overview
+            if (currentStep === 5) {
+                generateProtocol();
+                createFinalPlateOverview();
+            }
+        }
+
+        function updateCompoundName(input, type) {
+            const name = input.value;
+            const colorIndex = Array.from(input.closest('#compoundList').children).indexOf(input.closest('div.mb-3'));
+            const color = type === 'agonist' ? 
+                colorPalettes.agonists[colorIndex % colorPalettes.agonists.length] :
+                colorPalettes.antagonists[colorIndex % colorPalettes.antagonists.length];
+            
+            if (type === 'agonist') {
+                compounds.agonists.set(name, color);
+            } else if (type === 'antagonist') {
+                compounds.antagonists.set(name, color);
+            }
+            
+            updateColorLegend();
+        }
+
+        function updateColorLegend() {
+            const legends = document.querySelectorAll('.color-legend');
+            legends.forEach(legend => {
+                let legendHTML = `
+                    <div class="d-flex gap-3 flex-wrap">
+                        <div class="legend-item">
+                            <span class="color-box" style="background: rgba(0, 123, 255, 0.5);"></span>
+                            <span>Cells</span>
+                        </div>
+                `;
+                
+                // Add agonist colors
+                compounds.agonists.forEach((color, name) => {
+                    legendHTML += `
+                        <div class="legend-item">
+                            <span class="color-box" style="background: ${color};"></span>
+                            <span>${name}</span>
+                        </div>
+                    `;
+                });
+                
+                // Add antagonist colors
+                compounds.antagonists.forEach((color, name) => {
+                    legendHTML += `
+                        <div class="legend-item">
+                            <span class="color-box" style="background: ${color};"></span>
+                            <span>${name}</span>
+                        </div>
+                    `;
+                });
+                
+                legendHTML += '</div>';
+                legend.innerHTML = legendHTML;
+            });
+        }
+
+        // Add time point input
+        function addTimePoint() {
+            const timePoints = document.getElementById('timePoints');
+            const timePointDiv = document.createElement('div');
+            timePointDiv.className = 'input-group';
+            timePointDiv.style.width = 'auto';
+            timePointDiv.innerHTML = `
+                <input type="number" class="form-control" placeholder="Hours" style="width: 100px;">
+                <span class="input-group-text">h</span>
+                <button class="btn btn-outline-danger" onclick="this.parentElement.remove()">×</button>
+            `;
+            timePoints.appendChild(timePointDiv);
+        }
+
+        // Update calculations
+        function updateCalculations() {
+            const calculationsDiv = document.getElementById('calculations');
+            const stockDiv = document.getElementById('stockSolutions');
+            const protocolDiv = document.getElementById('protocol');
+            
+            // Calculate total volumes and concentrations
+            let totalVolume = 0;
+            let gradientWells = 0;
+            let controlWells = 0;
+            let compounds = new Map(); // Track unique compounds and their concentrations
+
+            plateLayout.forEach((row, rowIndex) => {
+                row.forEach((well, colIndex) => {
+                    if (well.type !== 'empty') {
+                        totalVolume += well.volume;
+                        if (well.type === 'gradient') gradientWells++;
+                        if (well.type.includes('control')) controlWells++;
+                        
+                        // Track compounds and their concentrations
+                        if (well.components) {
+                            well.components.forEach(comp => {
+                                if (!compounds.has(comp.name)) {
+                                    compounds.set(comp.name, {
+                                        maxConc: comp.concentration,
+                                        unit: comp.unit,
+                                        wells: []
+                                    });
+                                }
+                                compounds.get(comp.name).wells.push({
+                                    row: rowIndex,
+                                    col: colIndex,
+                                    conc: comp.concentration
+                                });
+                                if (comp.concentration > compounds.get(comp.name).maxConc) {
+                                    compounds.get(comp.name).maxConc = comp.concentration;
+                                }
+                            });
+                        }
+                    }
+                });
+            });
+
+            // Display calculations
+            calculationsDiv.innerHTML = `
+                <p><strong>Total Volume Needed:</strong> ${totalVolume} µL</p>
+                <p><strong>Number of Treatment Wells:</strong> ${gradientWells}</p>
+                <p><strong>Number of Control Wells:</strong> ${controlWells}</p>
+                <p><strong>Media Volume:</strong> ${totalVolume * 0.9} µL</p>
+                <p><strong>Cell Suspension Needed:</strong> ${totalVolume * 0.1} µL</p>
+            `;
+
+            // Display stock solutions with safety margin
+            const safetyMargin = 1.2; // 20% extra
+            stockDiv.innerHTML = `
+                <p><strong>2X Treatment Stock:</strong> Prepare ${Math.ceil(gradientWells * plateConfig.wellVolume * 0.6 * safetyMargin)} µL</p>
+                <p><strong>Cell Suspension:</strong> Prepare ${Math.ceil(totalVolume * 0.15 * safetyMargin)} µL (includes 50% excess)</p>
+            `;
+
+            // Generate detailed protocol steps
+            let protocolSteps = [];
+            
+            // 1. Required Materials section
+            protocolSteps.push({
+                title: "Required Materials",
+                type: "materials",
+                steps: [
+                    "• Sterile cell culture plates",
+                    `• Complete culture medium (${document.getElementById('medium').value})`,
+                    "• Sterile serological pipettes",
+                    "• Micropipettes and sterile tips",
+                    "• Sterile reagent reservoirs",
+                    "• Cell counter and counting slides",
+                    "• Personal protective equipment (gloves, lab coat)",
+                    "• 15 mL and 50 mL conical tubes",
+                    "• Sterile microcentrifuge tubes for dilutions"
+                ]
+            });
+
+            // 2. Safety Precautions
+            protocolSteps.push({
+                title: "Safety Precautions",
+                type: "safety",
+                steps: [
+                    "• Perform all cell culture procedures in a certified biosafety cabinet",
+                    "• Wear appropriate personal protective equipment",
+                    "• Handle all biological materials according to biosafety guidelines",
+                    "• Dispose of materials in appropriate biological waste containers"
+                ]
+            });
+
+            // 3. Media and Solution Preparation
+            const totalWells = document.querySelectorAll('.well.selected').length;
+            const requiredVolume = totalWells * plateConfig.wellVolume * (document.getElementById('extraVolume').value / 100 + 1);
+            
+            protocolSteps.push({
+                title: "Media and Solution Preparation",
+                type: "preparation",
+                steps: [
+                    `1. Warm ${Math.ceil(requiredVolume)} µL of complete media to 37°C`,
+                    "2. Label all required tubes for compound preparations",
+                    "3. Prepare compound dilutions:"
+                ]
+            });
+
+            // 4. Compound Preparation Steps
+            const compoundEntries = Array.from(document.querySelectorAll('#compoundList > div')).map(div => {
+                const name = div.querySelector('input[type="text"]').value;
+                const type = div.querySelector('input[type="text"]').dataset.type;
+                const stockConc = {
+                    value: div.querySelector('.col:first-child input[type="number"]').value,
+                    unit: div.querySelector('.col:first-child select').value
+                };
+                const workingConc = {
+                    value: div.querySelector('.col:last-child input[type="number"]').value,
+                    unit: div.querySelector('.col:last-child select').value
+                };
+                return { name, type, stockConc, workingConc };
+            });
+
+            if (compoundEntries.length > 0) {
+                const compoundSteps = {
+                    title: "Compound Preparation",
+                    type: "compounds",
+                    steps: compoundEntries.map((comp, index) => {
+                        const dilutionFactor = comp.stockConc.value / comp.workingConc.value;
+                        const compoundVolume = Math.ceil((requiredVolume / dilutionFactor) * (document.getElementById('extraVolume').value / 100 + 1));
+                        return `${index + 1}. ${comp.name} (${comp.type}):
+                           - Label a sterile tube "${comp.name} - ${comp.workingConc.value}${comp.workingConc.unit}"
+                           - Add ${compoundVolume} µL media to the tube
+                           - Add ${Math.ceil(compoundVolume/dilutionFactor)} µL of ${comp.stockConc.value}${comp.stockConc.unit} stock
+                           - Mix well by gentle pipetting`;
+                    })
+                };
+                protocolSteps.push(compoundSteps);
+            }
+
+            // 5. Cell Preparation
+            const cellPrep = {
+                title: "Cell Preparation",
+                type: "cells",
+                steps: [
+                    `1. Count cells and prepare suspension at ${document.getElementById('cellDensity').value * 2}×10⁶ cells/mL:`,
+                    `   - Required cell suspension: ${Math.ceil(requiredVolume * 0.4 * (document.getElementById('extraVolume').value / 100 + 1))} µL`,
+                    "   - Count cells using a hemocytometer or automated counter",
+                    `   - Dilute cells to ${document.getElementById('cellDensity').value * 2}×10⁶ cells/mL in complete media`,
+                    "   - Mix cell suspension gently to ensure uniform distribution"
+                ]
+            };
+            protocolSteps.push(cellPrep);
+
+            // 6. Plate Setup
+            const plateSetup = {
+                title: "Plate Setup",
+                type: "setup",
+                steps: [
+                    "1. Label plate with:",
+                    "   - Experiment name and date",
+                    "   - Your initials",
+                    "   - Treatment conditions",
+                    `2. Add ${plateConfig.wellVolume * 0.5} µL pre-warmed media to all wells`,
+                    "3. Add compounds according to plate layout:"
+                ]
+            };
+
+            // Add specific well instructions
+            plateLayout.forEach((row, rowIndex) => {
+                row.forEach((well, colIndex) => {
+                    if (well.type !== 'empty' && well.components && well.components.length > 0) {
+                        const wellPos = `${String.fromCharCode(65 + rowIndex)}${colIndex + 1}`;
+                        well.components.forEach(comp => {
+                            plateSetup.steps.push(
+                                `   - Well ${wellPos}: Add ${plateConfig.wellVolume * 0.1} µL of ${comp.name} (${comp.concentration} ${comp.unit})`
+                            );
+                        });
+                    }
+                });
+            });
+            protocolSteps.push(plateSetup);
+
+            // 7. Cell Addition
+            const cellAddition = {
+                title: "Cell Addition",
+                type: "cells",
+                steps: [
+                    `1. Add ${plateConfig.wellVolume * 0.4} µL of cell suspension to each well`,
+                    "2. Gently tap plate sides to distribute cells evenly",
+                    "3. Place plate in incubator:",
+                    "   - Temperature: 37°C",
+                    "   - CO₂: 5%",
+                    "   - Humidity: >95%"
+                ]
+            };
+            protocolSteps.push(cellAddition);
+
+            // 8. Time Points and Measurements
+            const timePoints = Array.from(document.querySelectorAll('#timePoints input[type="number"]'))
+                .map(input => input.value)
+                .filter(Boolean)
+                .sort((a, b) => a - b);
+
+            if (timePoints.length > 0) {
+                const timePointSteps = {
+                    title: "Time Points and Measurements",
+                    type: "timepoints",
+                    steps: timePoints.map(time => 
+                        `• ${time}h: Measure plate according to assay protocol`
+                    )
+                };
+                protocolSteps.push(timePointSteps);
+            }
+
+            // Display protocol steps with styling
+            protocolDiv.innerHTML = protocolSteps.map(section => `
+                <div class="protocol-step">
+                    <h5 class="protocol-section-title ${section.type}">${section.title}</h5>
+                    <div class="protocol-content">
+                        ${Array.isArray(section.steps) ? 
+                            section.steps.map(step => `<div class="protocol-step-item">${step}</div>`).join('') :
+                            section.steps}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Export design
+        function exportDesign() {
+            const design = {
+                plateType: document.getElementById('plateType').value,
+                assayType: document.getElementById('assayType').value,
+                cellType: document.getElementById('cellType').value,
+                layout: plateLayout,
+                calculations: {
+                    // Add relevant calculations
+                }
+            };
+
+            const blob = new Blob([JSON.stringify(design, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'assay-design.json';
+            a.click();
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set up event listeners and initial state
+            document.getElementById('plateType').addEventListener('change', (e) => {
+                const type = e.target.value;
+                if (type === '96') {
+                    plateConfig.rows = 8;
+                    plateConfig.cols = 12;
+                } else if (type === '384') {
+                    plateConfig.rows = 16;
+                    plateConfig.cols = 24;
+                }
+                // Update plate grid if on step 2
+                if (currentStep === 2) initializePlate();
+            });
+
+            // Add default agonist and antagonist
+            addCompoundEntry('agonist');
+            addCompoundEntry('antagonist');
+
+            // Set up media information defaults
+            document.getElementById('agonistMedia').value = document.getElementById('medium').value;
+            document.getElementById('antagonistMedia').value = document.getElementById('medium').value;
+            document.getElementById('agonistVolume').value = document.getElementById('wellVolume').value;
+            document.getElementById('antagonistVolume').value = document.getElementById('wellVolume').value;
+        });
+
+        function showWellModal(row, col) {
+            const modal = document.getElementById('wellModal');
+            const backdrop = document.createElement('div');
+            backdrop.className = 'well-modal-backdrop';
+            document.body.appendChild(backdrop);
+            
+            activeWell = { row, col };
+            document.getElementById('wellPosition').textContent = `${String.fromCharCode(65 + row)}${col + 1}`;
+            
+            // Load existing well configuration
+            const wellConfig = plateLayout[row][col];
+            document.getElementById('wellTypeSelect').value = wellConfig.type || 'sample';
+            
+            // Update dilution component dropdown with existing components
+            const dilutionSelect = document.getElementById('dilutionComponent');
+            dilutionSelect.innerHTML = '<option value="">Select Component</option>';
+            const componentNames = new Set();
+            
+            // Add components from all selected wells
+            document.querySelectorAll('.well.selected').forEach(well => {
+                const r = parseInt(well.dataset.row);
+                const c = parseInt(well.dataset.col);
+                if (plateLayout[r][c].components) {
+                    plateLayout[r][c].components.forEach(comp => {
+                        componentNames.add(comp.name);
+                    });
+                }
+            });
+            
+            // Add to dropdown
+            componentNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                dilutionSelect.appendChild(option);
+            });
+            
+            // Load components
+            const componentList = document.getElementById('componentList');
+            componentList.innerHTML = '';
+            if (wellConfig.components) {
+                wellConfig.components.forEach(comp => addComponentToList(comp));
+            }
+            
+            modal.style.display = 'block';
+        }
+
+        function closeWellModal() {
+            document.getElementById('wellModal').style.display = 'none';
+            document.querySelector('.well-modal-backdrop').remove();
+            activeWell = null;
+        }
+
+        function addComponent() {
+            const componentList = document.getElementById('componentList');
+            const componentDiv = document.createElement('div');
+            componentDiv.className = 'component-item';
+            componentDiv.innerHTML = `
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm" placeholder="Component Name">
+                    <input type="number" class="form-control form-control-sm" placeholder="Concentration">
+                    <select class="form-select form-select-sm">
+                        <option value="uM">µM</option>
+                        <option value="nM">nM</option>
+                        <option value="mM">mM</option>
+                    </select>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">×</button>
+            `;
+            componentList.appendChild(componentDiv);
+        }
+
+        function addComponentToList(component) {
+            const componentList = document.getElementById('componentList');
+            const componentDiv = document.createElement('div');
+            componentDiv.className = 'component-item';
+            componentDiv.innerHTML = `
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm" value="${component.name}">
+                    <input type="number" class="form-control form-control-sm" value="${component.concentration}">
+                    <select class="form-select form-select-sm">
+                        <option value="${component.unit}" selected>${component.unit}</option>
+                        <option value="uM">µM</option>
+                        <option value="nM">nM</option>
+                        <option value="mM">mM</option>
+                    </select>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" onclick="this.parentElement.remove()">×</button>
+            `;
+            componentList.appendChild(componentDiv);
+        }
+
+        function saveWellConfig() {
+            const wellType = document.getElementById('wellTypeSelect').value;
+            
+            // Collect components
+            const components = [];
+            document.querySelectorAll('.component-item').forEach(item => {
+                const inputs = item.querySelectorAll('input, select');
+                if (inputs[0].value) { // Only add if component name is not empty
+                    components.push({
+                        name: inputs[0].value,
+                        concentration: parseFloat(inputs[1].value),
+                        unit: inputs[2].value
+                    });
+                }
+            });
+            
+            // Apply configuration to all selected wells
+            document.querySelectorAll('.well.selected').forEach(well => {
+                const row = parseInt(well.dataset.row);
+                const col = parseInt(well.dataset.col);
+                
+                // Update plate layout
+                plateLayout[row][col] = {
+                    type: wellType,
+                    components: [...components], // Create a copy of components
+                    volume: plateConfig.wellVolume
+                };
+                
+                // Update well appearance
+                well.className = `well ${wellType}`;
+                well.innerHTML = `
+                    ${components.length ? components[0].concentration : ''}
+                    <div class="well-info">${components.length ? components[0].name : ''}</div>
+                `;
+            });
+            
+            closeWellModal();
+            updateCalculations();
+        }
+
+        // Add keyboard shortcut for well selection
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.well.selected').forEach(w => w.classList.remove('selected'));
+                lastSelectedWell = null;
+            }
+        });
+
+        function generateProtocol() {
+            const protocolDiv = document.getElementById('protocol');
+            protocolDiv.innerHTML = ''; // Clear previous content
+
+            let protocolSteps = [];
+
+            // Step 1: Cell Preparation
+            let totalCellsVolume = calculateTotalCellVolume();
+            let cellStockConcentration = parseFloat(document.getElementById('cellDensity').value) * 1e6; // Convert to cells/mL
+            let requiredCellSuspension = totalCellsVolume / (cellStockConcentration / 1e6); // in mL
+
+            protocolSteps.push({
+                title: "Cell Preparation",
+                steps: [
+                    `1. Prepare the cell suspension at a concentration of ${document.getElementById('cellDensity').value} × 10⁶ cells/mL.`,
+                    `2. Adjust the total volume to ${Math.ceil(requiredCellSuspension * 1.2)} mL to account for pipetting losses.`,
+                    `3. Pipette ${totalCellsVolume} µL of the cell suspension into designated wells.`
+                ]
+            });
+
+            // Step 2: Agonist Preparation
+            let agonistSteps = [];
+            wellContents.agonists.forEach(wellKey => {
+                let [row, col] = wellKey.split(',').map(Number);
+                wellComponents[wellKey].agonists.forEach(agonist => {
+                    let conc = getWellConcentration(row, col, agonist, 'agonist');
+                    agonistSteps.push(`• Add ${conc} of ${agonist} to well ${String.fromCharCode(65 + row)}${col + 1}`);
+                });
+            });
+
+            if (agonistSteps.length > 0) {
+                protocolSteps.push({
+                    title: "Agonist Addition",
+                    steps: [
+                        "1. Prepare the agonist solutions as per calculated concentrations.",
+                        ...agonistSteps
+                    ]
+                });
+            }
+
+            // Step 3: Antagonist Preparation
+            let antagonistSteps = [];
+            wellContents.antagonists.forEach(wellKey => {
+                let [row, col] = wellKey.split(',').map(Number);
+                wellComponents[wellKey].antagonists.forEach(antagonist => {
+                    let conc = getWellConcentration(row, col, antagonist, 'antagonist');
+                    antagonistSteps.push(`• Add ${conc} of ${antagonist} to well ${String.fromCharCode(65 + row)}${col + 1}`);
+                });
+            });
+
+            if (antagonistSteps.length > 0) {
+                protocolSteps.push({
+                    title: "Antagonist Addition",
+                    steps: [
+                        "1. Prepare the antagonist solutions as per calculated concentrations.",
+                        ...antagonistSteps
+                    ]
+                });
+            }
+
+            // Step 4: Final Volume Adjustments
+            let finalVolumeSteps = [
+                "1. Ensure the total well volume is balanced by adjusting the medium volume accordingly.",
+                "2. Mix gently to ensure uniform distribution of cells and compounds."
+            ];
+
+            protocolSteps.push({
+                title: "Final Adjustments",
+                steps: finalVolumeSteps
+            });
+
+            // Step 5: Incubation & Readout
+            protocolSteps.push({
+                title: "Incubation & Measurement",
+                steps: [
+                    `1. Incubate the plate at ${document.getElementById('treatmentDuration').value} hours.`,
+                    "2. Proceed with readout based on assay type (fluorescence, absorbance, luminescence, etc.)."
+                ]
+            });
+
+            // Render protocol steps in the UI
+            protocolSteps.forEach(section => {
+                let sectionDiv = document.createElement('div');
+                sectionDiv.className = 'protocol-section';
+                sectionDiv.innerHTML = `<h5>${section.title}</h5><ul>${section.steps.map(step => `<li>${step}</li>`).join('')}</ul>`;
+                protocolDiv.appendChild(sectionDiv);
+            });
+
+            // Add AI chat interface
+            let chatDiv = document.createElement('div');
+            chatDiv.className = 'protocol-section mt-4';
+            chatDiv.innerHTML = `
+                <h5>Protocol Assistant</h5>
+                <div id="chatHistory" class="chat-history mb-3" style="max-height: 200px; overflow-y: auto;"></div>
+                <div class="input-group">
+                    <input type="text" id="chatInput" class="form-control" placeholder="Ask a question or request modifications...">
+                    <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+                </div>
+            `;
+            protocolDiv.appendChild(chatDiv);
+
+            // Show the final plate layout with colors
+            createFinalPlateOverview();
+        }
+
+        function calculateTotalCellVolume() {
+            let totalVolume = 0;
+            wellContents.cells.forEach(wellKey => {
+                let [row, col] = wellKey.split(',').map(Number);
+                if (plateLayout[row] && plateLayout[row][col]) {
+                    totalVolume += plateLayout[row][col].volume || plateConfig.wellVolume;
+                }
+            });
+            return totalVolume;
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            const chatHistory = document.getElementById('chatHistory');
+            
+            // Add user message
+            chatHistory.innerHTML += `
+                <div class="chat-message user-message">
+                    <strong>You:</strong> ${message}
+                </div>
+            `;
+
+            // Process the message and generate a response
+            const response = processUserMessage(message);
+            
+            // Add AI response
+            chatHistory.innerHTML += `
+                <div class="chat-message ai-message">
+                    <strong>Assistant:</strong> ${response}
+                </div>
+            `;
+
+            // Clear input and scroll to bottom
+            input.value = '';
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        function processUserMessage(message) {
+            // Simple response generation based on keywords
+            if (message.toLowerCase().includes('volume')) {
+                return `The total volume per well is ${plateConfig.wellVolume} µL. This includes media, cells, and compounds.`;
+            } else if (message.toLowerCase().includes('cell')) {
+                const cellDensity = document.getElementById('cellDensity').value;
+                return `The cell concentration is ${cellDensity}×10⁶ cells/mL, which gives ${cellDensity * plateConfig.wellVolume * 1000} cells per well.`;
+            } else if (message.toLowerCase().includes('incubation')) {
+                return `The incubation time is set to ${document.getElementById('treatmentDuration').value} hours at 37°C, 5% CO₂.`;
+            } else {
+                return "I can help you with questions about volumes, cell numbers, concentrations, and protocol steps. Please be more specific.";
+            }
+        }
+
+        // Add these styles to the existing style section
+        const style = document.createElement('style');
+        style.textContent = `
+            .chat-history {
+                border: 1px solid #dee2e6;
+                border-radius: 5px;
+                padding: 10px;
+                background: #f8f9fa;
+            }
+            .chat-message {
+                margin-bottom: 10px;
+                padding: 5px;
+                border-radius: 5px;
+            }
+            .user-message {
+                background: #e3f2fd;
+            }
+            .ai-message {
+                background: #f5f5f5;
+            }
+        `;
+        document.head.appendChild(style);
+
+        function createFinalPlateOverview() {
+            const grid = document.createElement('div');
+            grid.className = 'plate-overview-grid';
+            grid.style.gridTemplateColumns = `30px repeat(${plateConfig.cols}, 40px)`;
+
+            // Create column headers (numbers 1-12)
+            createHeaderRow(grid);
+
+            // Create rows with wells
+            for (let i = 0; i < plateConfig.rows; i++) {
+                createRowHeader(grid, i);
+                for (let j = 0; j < plateConfig.cols; j++) {
+                    const well = document.createElement('div');
+                    well.className = 'overview-well';
+                    const wellKey = `${i},${j}`;
+                    
+                    // Create tooltip
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'well-tooltip';
+                    tooltip.innerHTML = generateWellTooltipContent(i, j);
+                    
+                    // Apply well colors and content
+                    updateFinalWellVisuals(well, i, j);
+                    
+                    well.appendChild(tooltip);
+                    grid.appendChild(well);
+                }
+            }
+
+            // Replace the existing plate overview content
+            const container = document.querySelector('#step5 .plate-overview');
+            container.innerHTML = `
+                <h4>Final Plate Overview</h4>
+                <p class="text-muted">Hover over wells to see detailed information about their contents.</p>
+            `;
+            container.appendChild(grid);
+        }
+
+        function generateWellTooltipContent(row, col) {
+            const wellKey = `${row},${col}`;
+            const components = wellComponents[wellKey] || { agonists: new Set(), antagonists: new Set() };
+            const wellVolume = document.getElementById('wellVolume').value;
+            let content = `<strong>Well ${String.fromCharCode(65 + row)}${col + 1}</strong>\n`;
+
+            // Add cell information if present
+            if (wellContents.cells.has(wellKey)) {
+                const cellDensity = document.getElementById('cellDensity').value;
+                const cellType = document.getElementById('cellType').value || 'Cells';
+                content += `\n<div class="well-tooltip-section">
+                    <div class="well-tooltip-header">Cells</div>
+                    <div class="well-tooltip-content">
+                        ${cellType}: ${cellDensity}×10⁶ cells/mL
+                        (${Math.round(cellDensity * wellVolume * 1000)} cells/well)
+                    </div>
+                </div>`;
+            }
+
+            // Add agonist information
+            if (components.agonists.size > 0) {
+                content += `\n<div class="well-tooltip-section">
+                    <div class="well-tooltip-header">Agonists</div>
+                    <div class="well-tooltip-content">`;
+                components.agonists.forEach(agonist => {
+                    const color = compounds.agonists.get(agonist);
+                    content += `• <span style="color: ${color}">${agonist}</span>: ${getCompoundConcentration(agonist, 'agonist')}\n`;
+                });
+                content += `</div></div>`;
+            }
+
+            // Add antagonist information
+            if (components.antagonists.size > 0) {
+                content += `\n<div class="well-tooltip-section">
+                    <div class="well-tooltip-header">Antagonists</div>
+                    <div class="well-tooltip-content">`;
+                components.antagonists.forEach(antagonist => {
+                    const color = compounds.antagonists.get(antagonist);
+                    content += `• <span style="color: ${color}">${antagonist}</span>: ${getCompoundConcentration(antagonist, 'antagonist')}\n`;
+                });
+                content += `</div></div>`;
+            }
+
+            // Add volume information
+            content += `\n<div class="well-tooltip-section">
+                <div class="well-tooltip-header">Well Details</div>
+                <div class="well-tooltip-content">
+                    Total Volume: ${wellVolume} µL
+                </div>
+            </div>`;
+
+            return content;
+        }
+
+        function updateFinalWellVisuals(wellElement, row, col) {
+            const wellKey = `${row},${col}`;
+            const components = wellComponents[wellKey] || { agonists: new Set(), antagonists: new Set() };
+            
+            // Reset well appearance
+            wellElement.style.background = '';
+            
+            // Collect all colors that should be displayed in this well
+            const colors = [];
+            
+            // Add cell color if the well has cells
+            if (wellContents.cells.has(wellKey)) {
+                colors.push('rgba(0, 123, 255, 0.7)'); // Cell color with increased opacity
+            }
+            
+            // Add agonist colors
+            components.agonists.forEach(agonist => {
+                const color = compounds.agonists.get(agonist);
+                if (color) colors.push(color.replace('0.5', '0.7')); // Increase opacity
+            });
+            
+            // Add antagonist colors
+            components.antagonists.forEach(antagonist => {
+                const color = compounds.antagonists.get(antagonist);
+                if (color) colors.push(color.replace('0.5', '0.7')); // Increase opacity
+            });
+            
+            // Apply the gradient with all collected colors
+            if (colors.length > 0) {
+                wellElement.style.background = generateMultiComponentGradient(colors);
+            }
+        }
+
+        function getCompoundConcentration(compoundName, type) {
+            const compoundDiv = Array.from(document.querySelectorAll('#compoundList > div')).find(div => 
+                div.querySelector('.compound-name').value === compoundName &&
+                div.querySelector('.compound-name').dataset.type === type
+            );
+            
+            if (compoundDiv) {
+                const concentration = compoundDiv.querySelector('.col:last-child input[type="number"]').value;
+                const unit = compoundDiv.querySelector('.col:last-child select').value;
+                return `${concentration} ${unit}`;
+            }
+            return 'N/A';
+        }
+
+        function getWellConcentration(row, col, compoundName, type) {
+            // First check plateLayout for serial dilution concentrations
+            if (plateLayout[row] && 
+                plateLayout[row][col] && 
+                plateLayout[row][col][`${type}Concentration`]) {
+                const conc = plateLayout[row][col][`${type}Concentration`];
+                return `${conc.value} ${conc.unit}`;
+            }
+            
+            // If no serial dilution concentration, get the working concentration
+            const compoundDiv = Array.from(document.querySelectorAll('#compoundList > div')).find(div => 
+                div.querySelector('.compound-name').value === compoundName &&
+                div.querySelector('.compound-name').dataset.type === type
+            );
+            
+            if (compoundDiv) {
+                const concentration = compoundDiv.querySelector('.col:last-child input[type="number"]').value;
+                const unit = compoundDiv.querySelector('.col:last-child select').value;
+                return `${concentration} ${unit}`;
+            }
+            
+            return 'N/A';
+        }
+
+        // Add new clearAll function
+        function clearAll() {
+            switch(currentStep) {
+                case 2: // Cell step
+                    // Clear only cells
+                    wellContents.cells.clear();
+                    Object.keys(wellComponents).forEach(key => {
+                        wellComponents[key].cells.clear();
+                    });
+                    break;
+                    
+                case 3: // Agonist step
+                    // Clear only agonists
+                    wellContents.agonists.clear();
+                    Object.keys(wellComponents).forEach(key => {
+                        wellComponents[key].agonists.clear();
+                    });
+                    break;
+                    
+                case 4: // Antagonist step
+                    // Clear only antagonists
+                    wellContents.antagonists.clear();
+                    Object.keys(wellComponents).forEach(key => {
+                        wellComponents[key].antagonists.clear();
+                    });
+                    break;
+            }
+            
+            // Clear pre-selections
+            preselectedWells.clear();
+            
+            // Update visuals
+            updateAllGrids();
+        }
+
+        // Add new emptyWell function to completely clear selected wells
+        function emptyWell() {
+            // Get all pre-selected wells
+            if (preselectedWells.size === 0) {
+                alert('Please select at least one well first');
+                return;
+            }
+
+            // Clear all contents from pre-selected wells
+            preselectedWells.forEach(wellKey => {
+                // Remove from all content sets
+                wellContents.cells.delete(wellKey);
+                wellContents.agonists.delete(wellKey);
+                wellContents.antagonists.delete(wellKey);
+
+                // Clear all components
+                if (wellComponents[wellKey]) {
+                    wellComponents[wellKey].cells.clear();
+                    wellComponents[wellKey].agonists.clear();
+                    wellComponents[wellKey].antagonists.clear();
+                }
+
+                // Clear from plateLayout if it exists
+                const [row, col] = wellKey.split(',').map(Number);
+                if (plateLayout[row] && plateLayout[row][col]) {
+                    plateLayout[row][col] = {};
+                }
+            });
+
+            // Clear pre-selections
+            preselectedWells.clear();
+
+            // Update visuals
+            updateAllGrids();
+        }
+
+        // Update selectAllWithAgonists function
+        function selectAllWithAgonists() {
+            const selectedAgonist = document.getElementById('agonistSelect').value;
+            if (!selectedAgonist) {
+                alert('Please select an agonist first');
+                return;
+            }
+            
+            // Select all wells that have the selected agonist
+            Object.entries(wellComponents).forEach(([wellKey, components]) => {
+                if (components.agonists.has(selectedAgonist)) {
+                    preselectedWells.add(wellKey);
+                }
+            });
+            
+            updateAllGrids();
+        }
+
+        // Update selectAllWithAntagonists function
+        function selectAllWithAntagonists() {
+            const selectedAntagonist = document.getElementById('antagonistSelect').value;
+            if (!selectedAntagonist) {
+                alert('Please select an antagonist first');
+                return;
+            }
+            
+            // Select all wells that have the selected antagonist
+            Object.entries(wellComponents).forEach(([wellKey, components]) => {
+                if (components.antagonists.has(selectedAntagonist)) {
+                    preselectedWells.add(wellKey);
+                }
+            });
+            
+            updateAllGrids();
+        }
+
+        // Update media volume display function
+        function updateMediaVolumeDisplay(row, col) {
+            const wellKey = `${row},${col}`;
+            const mediaVolumeInput = currentStep === 3 ? 
+                document.getElementById('agonistVolume') : 
+                document.getElementById('antagonistVolume');
+            const mediaTypeInput = currentStep === 3 ?
+                document.getElementById('agonistMedia') :
+                document.getElementById('antagonistMedia');
+            
+            if (wellComponents[wellKey]) {
+                if (wellComponents[wellKey].mediaVolume) {
+                    mediaVolumeInput.value = wellComponents[wellKey].mediaVolume;
+                    mediaVolumeInput.style.color = 'red';
+                }
+                if (wellComponents[wellKey].mediaType) {
+                    mediaTypeInput.value = wellComponents[wellKey].mediaType;
+                    mediaTypeInput.style.color = 'red';
+                }
+            } else {
+                mediaVolumeInput.value = document.getElementById('wellVolume').value;
+                mediaVolumeInput.style.color = 'black';
+                mediaTypeInput.value = document.getElementById('medium').value;
+                mediaTypeInput.style.color = 'black';
+            }
+        }
+    </script>
+</body>
+</html> 
